@@ -1,0 +1,134 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/code
+    environment:
+      AWS_DEFAULT_REGION: ap-southeast-2
+
+    docker:
+      - image: cotdsa/builder-image:awscli-auth
+
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - add_ssh_keys:
+          fingerprints:
+            - "bb:89:ad:27:20:7d:a0:4a:35:e8:51:eb:ff:b8:e4:7f"
+
+      - run: |
+          export DOCKER_TAG=${CIRCLE_TAG:-$CIRCLE_BRANCH-${CIRCLE_SHA1:0:12}}
+          export DOCKER_IMAGE=catch/${CIRCLE_PROJECT_REPONAME}
+          docker build --build-arg DOCKER_TAG=$DOCKER_TAG -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+          eval $(aws ecr get-login --no-include-email --region ap-southeast-2)
+          docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} 362995399210.dkr.ecr.ap-southeast-2.amazonaws.com/${DOCKER_IMAGE}:${DOCKER_TAG}
+          docker push 362995399210.dkr.ecr.ap-southeast-2.amazonaws.com/$DOCKER_IMAGE:${DOCKER_TAG}
+
+  helm-chart:
+    working_directory: ~/code
+    environment:
+      AWS_DEFAULT_REGION: ap-southeast-2
+
+    docker:
+      - image: 362995399210.dkr.ecr.ap-southeast-2.amazonaws.com/catch/helm-builder:latest
+
+    steps:
+      - checkout
+
+      - run: |
+          helm package chart/${CIRCLE_PROJECT_REPONAME}
+          [[ -n ${CIRCLE_TAG} ]] && export CHART=stable || export CHART=testing
+          helm s3 push --force ${CIRCLE_PROJECT_REPONAME}*.tgz cgws-helm-$CHART
+
+  helm-chart-git-update:
+    working_directory: ~/code
+    environment:
+      AWS_DEFAULT_REGION: ap-southeast-2
+
+    docker:
+      - image: alpine/helm:latest
+
+    steps:
+      - checkout
+
+      - run: |
+          apk add git openssh wget
+          wget https://github.com/github/hub/releases/download/v2.6.0/hub-linux-amd64-2.6.0.tgz
+          tar xf hub-linux-amd64-2.6.0.tgz
+          cp hub-linux-amd64-2.6.0/bin/hub /tmp/hub
+          chmod +x /tmp/hub
+          ash .circleci/scripts/helm_chart_repo_update.sh
+
+  veritas-pr:
+    working_directory: ~/code
+    environment:
+      AWS_DEFAULT_REGION: ap-southeast-2
+
+    docker:
+      - image: alpine/helm:latest
+
+    steps:
+      - checkout
+
+      - run: |
+          apk add git openssh gettext wget
+          wget https://github.com/github/hub/releases/download/v2.6.0/hub-linux-amd64-2.6.0.tgz
+          tar xf hub-linux-amd64-2.6.0.tgz
+          cp hub-linux-amd64-2.6.0/bin/hub /tmp/hub
+          chmod +x /tmp/hub
+          apk add git jq py-pip
+          apk add moreutils --update-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted
+          pip install yq
+          ash .circleci/scripts/git.sh
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build:
+          filters:  # required since children have tag filters AND requires `build`
+            tags:
+              only: /^((\d){1,3}\.){1,2}((\d){1,3})$/
+      - helm-chart:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - testing
+            tags:
+              only: /^((\d){1,3}\.){1,2}((\d){1,3})$/
+      - helm-chart-git-update:
+          requires:
+            - helm-chart
+          filters:
+            branches:
+              only:
+                - testing
+            tags:
+              only: /^((\d){1,3}\.){1,2}((\d){1,3})$/
+      - veritas-pr:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^((\d){1,3}\.){1,2}((\d){1,3})$/
+            branches:
+              only:
+                - testing
+
+
+
+
+#######
+## ALL Branches Should build
+# Only tagged releases should build and update production veritas
+# All pushes to testing should build and update latest + commit hash
+#  - Therefore should also update veritas rbt tag
+#Helm Charts:
+#  Should only run if chart has been updated.
+#
+#
+#
+#

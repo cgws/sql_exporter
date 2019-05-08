@@ -1,0 +1,16 @@
+---
+apiVersion: flux.weave.works/v1beta1
+kind: HelmRelease
+metadata:
+  name: $CIRCLE_PROJECT_REPONAME
+  namespace: $PROJECT_NAMESPACE
+spec:
+  releaseName: $CIRCLE_PROJECT_REPONAME
+  chart:
+    git: git@github.com:cgws/helm-charts
+    path: charts/$CHART/$CIRCLE_PROJECT_REPONAME
+  valueFileSecrets:
+  - name: $CIRCLE_PROJECT_REPONAME
+  values:
+    image:
+      tag: $DOCKER_TAG

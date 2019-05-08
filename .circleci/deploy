@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if [ "${CIRCLE_BRANCH}" == "testing" ]; then
+#  aws ecs update-service --service sajari-sync --cluster aux-services-ecs --force-new-deployment --region ap-southeast-2 --profile xaccount-ecs
+  ssh -o StrictHostKeyChecking=no ubuntu@brig.ops.cgws.com.au -t '/snap/bin/kubectl config use-context midship_rbt && /snap/bin/kubectl --namespace=sajari-sync patch deployment sajari-search -p   "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}"'
+
+fi
+
+if [ "${CIRCLE_BRANCH}" == "production" ]; then
+  ssh -o StrictHostKeyChecking=no ubuntu@brig.ops.cgws.com.au -t '/snap/bin/kubectl config use-context midship_absinthe && /snap/bin/kubectl --namespace=sajari-sync patch deployment sajari-search -p   "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"date\":\"`date +'%s'`\"}}}}}"'
+
+fi

@@ -1,0 +1,21 @@
+# resource "kubernetes_secret" "templates" {
+#   count = "${length(module.helm_values.rendered_templates)}"
+#   metadata {
+#     name      = "${substr(element(module.helm_values.values_files_names, count.index),7,length(element(module.helm_values.values_files_names, count.index))-16)}"
+#     namespace = "${element(module.helm_values.values_files_namespaces, count.index)}"
+#   }
+#   data = "${map("values.yaml",element(module.helm_values.rendered_templates, count.index))}"
+# }
+resource "vault_generic_secret" "example" {
+  count = "${length(local.environments)}"
+  path  = "infrastructure/apps/team-${local.team}/${local.environments[count.index]}/k8s_secrets/${local.app_name}"
+
+  data_json = <<EOD
+{
+  "data": {
+    "values.yaml": ${jsonencode(element(data.template_file.values.*.rendered, count.index))}
+  },
+  "namespace": "${local.namespace}"
+}
+EOD
+}

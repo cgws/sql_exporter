@@ -1,0 +1,43 @@
+{{- if .Values.ingress.enabled -}}
+{{- $root := . -}}
+{{- $serviceName := include "app.fullname" . -}}
+{{- $servicePort := .Values.service.servicePort -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ template "app.fullname" . }}
+  labels:
+    app: {{ template "app.name" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- if .Values.ingress.labels }}
+{{ toYaml .Values.ingress.labels | indent 4 }}
+{{- end }}
+  annotations:
+  {{- if .Values.ingress.annotations }}
+{{ toYaml .Values.ingress.annotations | indent 4 }}
+  {{- end }}
+spec:
+  rules:
+    {{- range $host := .Values.ingress.hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+          {{- if index  $.Values.ingress.annotations "alb.ingress.kubernetes.io/actions.ssl-redirect" }}
+          - path: /
+            backend:
+              serviceName: ssl-redirect
+              servicePort: use-annotation
+          {{- end }}
+          - path: /
+            backend:
+              serviceName: {{ $serviceName }}
+              servicePort: {{ $servicePort }}
+    {{- end }}
+# Not going to support tls yet, as it is terminated at the elb/alb
+#   {{- if .Values.ingress.tls }}
+#   tls:
+# {{ toYaml .Values.ingress.tls | indent 4 }}
+#   {{- end -}}
+{{- end -}}

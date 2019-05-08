@@ -1,0 +1,17 @@
+{{- if .Values.scaling.enabled -}}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "app.fullname" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    name: {{ template "app.fullname" . }}
+  minReplicas: {{ .Values.scaling.min }}
+  maxReplicas: {{ .Values.scaling.max }}
+{{- if .Values.scaling.metrics }}
+  metrics:
+{{ toYaml .Values.scaling.metrics | indent 4 }}
+{{- end }}
+{{- end -}}

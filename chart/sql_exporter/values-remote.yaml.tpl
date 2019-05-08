@@ -1,0 +1,235 @@
+---
+costcode: cotd
+
+config:
+  # See veritas flux release for main config
+  
+  # Global settings and defaults.
+  global:
+    # Scrape timeouts ensure that:
+    #   (i)  scraping completes in reasonable time and
+    #   (ii) slow queries are canceled early when the database is already under heavy load
+    # Prometheus informs targets of its own scrape timeout (via the "X-Prometheus-Scrape-Timeout-Seconds" request header)
+    # so the actual timeout is computed as:
+    #   min(scrape_timeout, X-Prometheus-Scrape-Timeout-Seconds - scrape_timeout_offset)
+    #
+    # If scrape_timeout <= 0, no timeout is set unless Prometheus provides one. The default is 10s.
+    scrape_timeout: 5s
+    # Subtracted from Prometheus' scrape_timeout to give us some headroom and prevent Prometheus from timing out first.
+    #
+    # Must be strictly positive. The default is 500ms.
+    scrape_timeout_offset: 500ms
+    # Minimum interval between collector runs: by default (0s) collectors are executed on every scrape.
+    min_interval: 10s
+    # Maximum number of open connections to any one target. Metric queries will run concurrently on multiple connections,
+    # as will concurrent scrapes.
+    #
+    # If max_connections <= 0, then there is no limit on the number of open connections. The default is 3.
+    max_connections: 10
+    # Maximum number of idle connections to any one target. Unless you use very long collection intervals, this should
+    # always be the same as max_connections.
+    #
+    # If max_idle_connections <= 0, no idle connections are retained. The default is 3.
+    max_idle_connections: 10
+
+## Details about the image to be pulled.
+image:
+  name: 362995399210.dkr.ecr.ap-southeast-2.amazonaws.com/${IMAGE}
+  tag: latest
+  # Try to leave as IfNotPresent, but Always can be used to force image updates at the cost of slower boot times
+  pullPolicy: IfNotPresent
+
+# priorityClassName: ""  # Not working yet, allows defining relative pod priority
+
+## Number of instances of the same service to run (how many copies of the pod to run)
+replicas: 1
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+scaling:
+  enabled: ${SCALING_ENABLED}
+  min: 1
+  max: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 90
+# awsenv required config for envvar loading
+ssm:
+  awsRegion: ap-southeast-2
+  path: /${APP_NAME}/${ENV_TYPE}/${ENV_NAME}
+
+# vaultenv required config for envvar loading
+# vault:
+#   secret: /app/appname/environment
+#   aws_auth_mount_path: aws-rbt
+#   role: kubernetes
+
+## Arbitrary Annotations to be added to pods
+## Good for kube2iam, etc
+podAnnotations:
+  log.config.scalyr.com/attributes.parser: loggerNode
+
+podMetrics:
+  port: 9399
+  path: /metrics
+
+## Add any additional pod labels
+podLabels: {}
+
+## Add extra arguments to the container execution command
+extraArgs: {}
+#  key: value   # provided to app as --key=value
+#  key          # provided to app as --key
+
+## Environment variables for the container
+## The default chart deployment is for a single container and will require
+## modification for multiples.
+
+extraEnv: []
+
+podVolumes: false
+
+## These two health check probes should be used to ensure desired behaviour
+## during app failure, maintenance, or other issues. They should point at
+## endpoints that produce different results under different circumstances,
+## if possible.
+## Liveness probes destroy and replace the pod on failure
+# livenessProbe:
+#   httpGet:
+#     path: /healthz
+#     port: 9910
+#     initialDelaySeconds: 3  # Pod boot time
+#     scheme: HTTP
+## Readiness probes leave the pod running but detach from load balancers
+## during failure (i.e. the pods stop receiving requests)
+# readinessProbe:
+#   httpGet:
+#     path: /healthz?isDbUp&isRedisUp&amIConfigured
+#     port: 9910
+#     initialDelaySeconds: 3
+#     scheme: HTTPS
+
+## Every service requires a sane limit as kube doesn't manage resources well enough to protect its core functions
+## Ensure the limit is large enough not to get in the way - it should only be hit
+## if something has gone terribly wrong as it will result in the death of the pod 
+resources:
+  limits:
+    memory: 2048Mi
+    cpu: 2000m
+  # Request about what the app will need on average, but low ball it
+  # Requests are **guarantees** and are bad for utilisation optimisation
+  requests:
+    memory: 50Mi
+    cpu: 10m
+
+## rbac should only be necessary for accessing the cluster.
+## Come see ops if you need it.
+## This is here mostly as a placeholder.
+rbac:
+  ## If true, create & use RBAC resources
+  ##
+  create: false
+  # Beginning with Kubernetes 1.8, the api is stable and v1 can be used.
+  apiVersion: v1
+
+  ## Ignored if rbac.create is true
+  ##
+  serviceAccountName: default
+
+ingress:
+  enabled: false
+  labels: {}
+  # Used to create Ingress record (should used with service.type: ClusterIP).
+  # hosts:
+  #  - service.cgws.com.au
+  annotations: {}
+  ## External-DNS will create and manage the dns record for you
+  #   external-dns.alpha.kubernetes.io/hostname: "service.cgws.com.au"
+  #   external-dns.alpha.kubernetes.io/ttl: "60"
+  ## For apps that don't need dedicated load balancers (not many should), utilise the
+  ## existing cluster nginx ingresses: nginx|nginx-dmz|nginx-public
+  ## Depending on the cluster, nginx-public may not exist - talk to ops if you need it.
+  #   kubernetes.io/ingress.class: nginx-dmz
+  ## For apps that require a dedicated load balancer, an ALB can be configured as below.
+  ## Note that where these example values are regex they will not work without modification.
+  ## See https://github.com/kubernetes-sigs/aws-alb-ingress-controller/blob/86ceee1e0ff05b0f414bf831f131a4ab95bcf923/docs/ingress-resources.md
+  # kubernetes.io/ingress.class: alb
+  # ## Create an external vs internal lb
+  # alb.ingress.kubernetes.io/scheme: /internet-facing|internal/
+  # ## Which security groups to attach. Omission will result in a cluster-managed, publicly-accessible SG being created and attached
+  # alb.ingress.kubernetes.io/security-groups: sg-723a380a,sg-a6181ede,sg-a5181edd
+  # ## Certificate to attach to https listener
+  # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-southeast-2:511282955421:certificate/04793e46-aea2-4af8-8165-7e66827d12f2
+  # ## Always include at least these tags
+  # alb.ingress.kubernetes.io/tags: Environment={{ .Values.environment }},costcode={{ .Values.costcode }}
+  # ## Logs to S3, always include
+  # alb.ingress.kubernetes.io/attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=cgws-elb-logs
+  # ## Ports to create listeners on
+  # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS":443}]'
+  # ## Healthcheck config
+  # alb.ingress.kubernetes.io/healthcheck-interval-seconds: "6"
+  # alb.ingress.kubernetes.io/healthcheck-path: /
+  # alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+  # alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+  # alb.ingress.kubernetes.io/healthy-threshold-count: "4"
+  # alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+  # alb.ingress.kubernetes.io/success-codes: "200"
+  # ## Deregistration is frustratingly long (5 or 10 minutes) by default, so set it to something less change prohibitive
+  # alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=60
+  # ## Create lb as ipv6+ipv4 or just ipv4
+  # alb.ingress.kubernetes.io/ip-address-type: /dualstack|ipv4/
+  # ## TLS security policy to use on HTTPS listeners. Try not to use anything older than ELBSecurityPolicy-TLS-1-2-2017-01
+  # alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+  # ## Redirects HTTP to HTTPS natively (within the LB)
+  # ## See https://kubernetes-sigs.github.io/aws-alb-ingress-controller/guide/tasks/ssl_redirect/
+  # ## NOTE: This has not been tested since the original implementation which was thoroughly broken
+  # alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "StatusCode": "HTTP_301"}}'
+
+service:
+  ## Allows arbitrary service annotations like those for AWS load balancers to be added
+  ## See https://kubernetes.io/docs/concepts/services-networking/ for aws LoadBalancer annotations
+  annotations: {}
+    # external-dns.alpha.kubernetes.io/hostname: "service.env.cgws.com.au"
+    # external-dns.alpha.kubernetes.io/ttl: "60"
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+    # service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    # service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "60"
+    # service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: '*'
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:ap-southeast-2:<account-id>:certificate/<cert-id>"
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-ports: https
+    # service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+    # service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    # service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "environment=env,costcode=costcode"
+    # service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: ""
+    # service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "3"
+    # service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "20"
+    # service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "5"
+    # service.beta.kubernetes.io/aws-load-balancer-extra-security-groups: "sg-53fae93f,sg-42efd82e"
+
+  servicePort: 9399  # Main port from which the app serves
+
+  type: ClusterIP  # (ClusterIP|LoadBalancer) Should almost always be ClusterIP
+  
+  clusterIP: ""  # Probably leave blank
+  loadBalancerIP: ""  # Set ONLY if the app must have its own LB, for general external access use ingress
+  loadBalancerSourceRanges: []  # Security group inbound source IP ranges with allowed access
+
+## nodeSelectors, tolerations, and affinity allow running the pods in specific places,
+## like on master nodes instead of workers.
+## Try not to use these.
+
+## Node labels for pod assignment
+## Ref: https://kubernetes.io/docs/user-guide/node-selection/
+##
+nodeSelector: {}
+
+## List of node taints to tolerate (requires Kubernetes >= 1.6)
+tolerations: []
+
+## Affinity
+affinity: []

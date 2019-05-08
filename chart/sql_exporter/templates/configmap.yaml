@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "app.fullname" . }}-config
+  labels: {{ include "app.labels" . | indent 4 }}
+data:
+  sql_exporter.yml: |-
+{{ toYaml .Values.config | indent 4 }}

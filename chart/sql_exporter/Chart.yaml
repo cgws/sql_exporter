@@ -1,0 +1,12 @@
+apiVersion: v1
+name: sql-exporter      # must match parent dir
+description: Runs arbitrary sql queries against a database and exports the results for prometheus scraping
+home: https://github.com/cgws/sql_exporter
+sources:
+  - https://github.com/CatchoftheDay/sql_exporter
+maintainers:
+  - name: Stephen Hallett
+    email: stephen.hallett@catch.com.au
+  - name: Ferry Satio
+    email: ferry.satio@catchoftheday.com.au
+deprecated: false           # Set to true if *chart* is deprecated (maybe there's a new, better chart)

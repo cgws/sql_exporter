@@ -1,0 +1,5 @@
+curl https://api.rollbar.com/api/1/deploy/ \
+     -F access_token=$ROLLBAR_TOKEN \
+     -F environment=$CIRCLE_BRANCH \
+     -F revision=$CIRCLE_SHA1 \
+     -F local_username=$CIRCLE_USERNAME
