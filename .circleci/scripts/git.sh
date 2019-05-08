@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e -x
 [[ -n "$CIRCLE_TAG" ]] && export ENV_TAG=production || export ENV_TAG=test
-[[ ${ENV_TAG} == "production" ]] && export BRANCH=absinthe || export BRANCH=rbt
+[[ ${ENV_TAG} == "production" ]] && export BRANCH=ops || export BRANCH=rbt
 [[ ${ENV_TAG} == "production" ]] && export CHART=stable || export CHART=testing
 
 export DOCKER_TAG=${CIRCLE_TAG:-$CIRCLE_BRANCH-${CIRCLE_SHA1:0:12}}
