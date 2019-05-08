@@ -13,11 +13,14 @@ helm init --client-only && \
 
 git clone https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/cgws/helm-charts
 cd helm-charts/charts
-git checkout -b $PR_BRANCH_NAME
+# if [ "x${ENV_TAG}" == "xstable" ]; then
+#     git checkout -b $PR_BRANCH_NAME
+# fi
 
 helm repo update
 
 cd $ENV_TAG && helm fetch cgws-helm-$ENV_TAG/$CIRCLE_PROJECT_REPONAME --untar --devel
+# [ -n "${CIRCLE_TAG}" ] && mv $CIRCLE_PROJECT_REPONAME ${CIRCLE_PROJECT_REPONAME}-${CIRCLE_TAG}
 
 if [ -n "$(git status --porcelain)" ]; then
    echo "Changes in chart detected proceeding"
@@ -32,11 +35,15 @@ git config --global user.name "Circle"
 git add -A
 git commit -a -m "[${ENV_TAG}] UPDATE/ADD Chart: ${CIRCLE_PROJECT_REPONAME}-${DOCKER_TAG}"
 
-git push origin $PR_BRANCH_NAME
-ls -lah /usr/local/bin
+# if [ "x${ENV_TAG}" == "xstable" ]; then
+#     git push origin $PR_BRANCH_NAME
+# fi
+git push
+# ls -lah /usr/local/bin
 
 
-mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
+# mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
 
-
-/tmp/hub pull-request -b master -m "$(git log -1 --pretty=%B)"
+# if [ "x${ENV_TAG}" == "xstable" ]; then
+#     /tmp/hub pull-request -b master -m "$(git log -1 --pretty=%B)"
+# fi
