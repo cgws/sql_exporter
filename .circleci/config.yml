@@ -38,9 +38,11 @@ jobs:
       - checkout
 
       - run: |
-          helm package chart/${CIRCLE_PROJECT_REPONAME}
-          [[ -n ${CIRCLE_TAG} ]] && export CHART=stable || export CHART=testing
-          helm s3 push --force ${CIRCLE_PROJECT_REPONAME}*.tgz cgws-helm-$CHART
+          [[ -n ${CIRCLE_TAG} ]] && export VERSION=${CIRCLE_TAG} || export VERSION=$(git tag -l|sort -t. -k 1,1nr -k 2,2nr -k 3,3nr -k 4,4nr|grep -E "^((\d){1,3}\.){1,2}((\d){1,3})$"|head -n1)
+          [[ -n "${VERSION}" ]] || export VERSION=0.0.1
+          helm package --app-version ${VERSION} --version ${VERSION} chart/${CIRCLE_PROJECT_REPONAME}
+          [[ -n ${CIRCLE_TAG} ]] && helm s3 push --force ${CIRCLE_PROJECT_REPONAME}*.tgz cgws-helm-stable
+          helm s3 push --force ${CIRCLE_PROJECT_REPONAME}*.tgz cgws-helm-testing
 
   helm-chart-git-update:
     working_directory: ~/code
@@ -81,7 +83,7 @@ jobs:
           apk add git jq py-pip
           apk add moreutils --update-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted
           pip install yq
-          ash .circleci/scripts/git.sh
+          .circleci/scripts/git.sh
 
 workflows:
   version: 2

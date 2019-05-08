@@ -2,12 +2,13 @@
 set -e -x
 
 export DOCKER_TAG=${CIRCLE_TAG:-$CIRCLE_BRANCH-${CIRCLE_SHA1:0:12}}
-export PR_BRANCH_NAME=${BRANCH}-${CIRCLE_PROJECT_REPONAME}-${CIRCLE_TAG:-$CIRCLE_BRANCH-${CIRCLE_SHA1:0:12}}
 
 function update_veritas() {
 
   [[ ${ENV_TAG} == "production" ]] && export BRANCH=ops || export BRANCH=rbt
   [[ ${ENV_TAG} == "production" ]] && export CHART=stable || export CHART=testing
+
+  export PR_BRANCH_NAME=${BRANCH}-${CIRCLE_PROJECT_REPONAME}-${DOCKER_TAG}
 
   git clone https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/cgws/veritas -b $BRANCH
   cd veritas
