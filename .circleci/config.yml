@@ -80,7 +80,7 @@ jobs:
           tar xf hub-linux-amd64-2.6.0.tgz
           cp hub-linux-amd64-2.6.0/bin/hub /tmp/hub
           chmod +x /tmp/hub
-          apk add git jq py-pip
+          apk add git jq py-pip bash
           apk add moreutils --update-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted
           pip install yq
           .circleci/scripts/git.sh
@@ -125,13 +125,6 @@ workflows:
 
 
 #######
-## ALL Branches Should build
-# Only tagged releases should build and update production veritas
-# All pushes to testing should build and update latest + commit hash
-#  - Therefore should also update veritas rbt tag
-#Helm Charts:
-#  Should only run if chart has been updated.
-#
-#
-#
-#
+# All branches build
+# Tags build + deploy to prod + testing
+# Testing builds + deploys to testing
