@@ -8,7 +8,7 @@ function update_veritas() {
   [[ ${ENV_TAG} == "production" ]] && export BRANCH=ops || export BRANCH=rbt
   [[ ${ENV_TAG} == "production" ]] && export CHART=stable || export CHART=testing
 
-  export PR_BRANCH_NAME=${BRANCH}-${CIRCLE_PROJECT_REPONAME}-${DOCKER_TAG}
+  export PR_BRANCH_NAME=${BRANCH}-${CIRCLE_PROJECT_REPONAME//_/-}-${DOCKER_TAG}
 
   git clone https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/cgws/veritas -b $BRANCH
   cd veritas
@@ -17,7 +17,7 @@ function update_veritas() {
   git checkout -b $PR_BRANCH_NAME
 
   ###### Check for a project_namespace env
-  [ -n "${PROJECT_NAMESPACE}" ] || export PROJECT_NAMESPACE=$CIRCLE_PROJECT_REPONAME
+  [ -n "${PROJECT_NAMESPACE}" ] || export PROJECT_NAMESPACE=${CIRCLE_PROJECT_REPONAME//_/-}
 
   ########### MANIFEST
 
@@ -28,20 +28,20 @@ function update_veritas() {
 
 
   ########## HELM Values
-  if [ ! -f releases/$CIRCLE_PROJECT_REPONAME.yaml ]; then
+  if [ ! -f releases/${CIRCLE_PROJECT_REPONAME//_/-}.yaml ]; then
     echo "File not found!"
-    envsubst < ~/code/.circleci/templates/release.yaml | sponge  releases/$CIRCLE_PROJECT_REPONAME.yaml
+    envsubst < ~/code/.circleci/templates/release.yaml | sponge  releases/${CIRCLE_PROJECT_REPONAME//_/-}.yaml
   else
-      cat releases/$CIRCLE_PROJECT_REPONAME.yaml | yq -y --arg projname "$CIRCLE_PROJECT_REPONAME" --arg newversion "${DOCKER_TAG}" '.spec.values.image.tag = $newversion' | sponge releases/$CIRCLE_PROJECT_REPONAME.yaml
+      cat releases/${CIRCLE_PROJECT_REPONAME//_/-}.yaml | yq -y --arg projname "${CIRCLE_PROJECT_REPONAME//_/-}" --arg newversion "${DOCKER_TAG}" '.spec.values.image.tag = $newversion' | sponge releases/${CIRCLE_PROJECT_REPONAME//_/-}.yaml
   fi
 
   git config --global user.email "circleci@catch.com.au"
   git config --global user.name "Circle"
 
-  git add releases/$CIRCLE_PROJECT_REPONAME.yaml
+  git add releases/${CIRCLE_PROJECT_REPONAME//_/-}.yaml
   git add namespaces/$PROJECT_NAMESPACE.yaml
 
-  git commit -m "[$BRANCH] UPDATE $CIRCLE_PROJECT_REPONAME image to $DOCKER_TAG"
+  git commit -m "[$BRANCH] UPDATE ${CIRCLE_PROJECT_REPONAME//_/-} image to $DOCKER_TAG"
 
   if [ "$ENV_TAG" == "production" ]; then
     git push origin $PR_BRANCH_NAME
