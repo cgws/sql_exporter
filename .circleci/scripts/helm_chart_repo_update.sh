@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e -x
 export DOCKER_TAG=${CIRCLE_TAG:-$CIRCLE_BRANCH-${CIRCLE_SHA1:0:12}}
-export PR_BRANCH_NAME=${CIRCLE_PROJECT_REPONAME}-${DOCKER_TAG}}
+export PR_BRANCH_NAME=${CIRCLE_PROJECT_REPONAME//_/-}-${DOCKER_TAG}}
 
 function update_helm_charts() {
     apk add bash
@@ -15,7 +15,7 @@ function update_helm_charts() {
 
     helm repo update
 
-    cd $ENV_TAG && helm fetch cgws-helm-$ENV_TAG/$CIRCLE_PROJECT_REPONAME --untar --devel
+    cd $ENV_TAG && helm fetch cgws-helm-$ENV_TAG/${CIRCLE_PROJECT_REPONAME//_/-} --untar --devel
 
     if [ -n "$(git status --porcelain)" ]; then
        echo "Changes in chart detected proceeding"
@@ -28,7 +28,7 @@ function update_helm_charts() {
     git config --global user.name "Circle"
 
     git add -A
-    git commit -a -m "[${ENV_TAG}] UPDATE/ADD Chart: ${CIRCLE_PROJECT_REPONAME}-${DOCKER_TAG}"
+    git commit -a -m "[${ENV_TAG}] UPDATE/ADD Chart: ${CIRCLE_PROJECT_REPONAME//_/-}-${DOCKER_TAG}"
 
     git push
 
